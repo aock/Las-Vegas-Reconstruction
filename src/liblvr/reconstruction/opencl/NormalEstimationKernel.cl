@@ -1,8 +1,3 @@
-float4 hit(float4 ray_p0, float4 ray_p1, float4 tri_v1, float4 tri_v2, float4 tri_v3)
-{
-//logic to detect if the ray intersects a triangle
-}
-
 unsigned int GetKdTreePosition(__global const float* D_kd_tree_values, const unsigned int num_values,
 							__global const unsigned char* D_kd_tree_splits , const unsigned int num_splits,
 	 						float x, float y, float z)
@@ -38,7 +33,6 @@ unsigned int GetKdTreePosition(__global const float* D_kd_tree_values, const uns
 	
     return pos;
 }
-
 
 __kernel void NormalEstimationKernel(
 		__global const float* D_V, const unsigned int num_points,
@@ -236,3 +230,4 @@ __kernel void NormalEstimationKernel(
 
 	}
 }
+

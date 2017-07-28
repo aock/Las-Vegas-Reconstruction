@@ -56,6 +56,17 @@ void ClSurface::calculateNormals()
 
 	// KNNKernel
 
+
+	// unsigned int threadsPerBlock = this->m_threads_per_block;
+	unsigned int warpSize = 32;
+	//unsigned int threadsPerBlock = 16384;
+	unsigned int threadsPerBlock = this->m_threads_per_block;
+	//unsigned int blocksPerGrid = ( (V.width + threadsPerBlock-1) / threadsPerBlock) / warpSize;
+
+	size_t local_item_size = static_cast<size_t>(warpSize);
+	size_t global_item_size = static_cast<size_t>(threadsPerBlock);
+	//size_t global_group_size = static_cast<size_t>(blocksPerGrid);
+
 	std::cout << "Set Kernel Arguments: Normal Estimation" << std::endl;
 
 	m_ret = clSetKernelArg(m_kernel_normal_estimation, 0, sizeof(cl_mem), (void *)&D_V);
@@ -74,17 +85,6 @@ void ClSurface::calculateNormals()
 
 	if(m_ret != CL_SUCCESS)
     	std::cerr << getErrorString(m_ret) << std::endl;	
-	
-
-	// unsigned int threadsPerBlock = this->m_threads_per_block;
-	unsigned int warpSize = 32;
-	//unsigned int threadsPerBlock = 16384;
-	unsigned int threadsPerBlock = this->m_threads_per_block;
-	//unsigned int blocksPerGrid = ( (V.width + threadsPerBlock-1) / threadsPerBlock) / warpSize;
-
-	size_t local_item_size = static_cast<size_t>(warpSize);
-	size_t global_item_size = static_cast<size_t>(threadsPerBlock);
-	//size_t global_group_size = static_cast<size_t>(blocksPerGrid);
 
 	std::cout << "Start Normal Estimation Kernel" << std::endl;
 	// std::cout << "local_item_size: "<< local_item_size << std::endl;
@@ -102,9 +102,25 @@ void ClSurface::calculateNormals()
 
 	// TODO
 	// InterpolationKernel
-	// m_ret = clEnqueueNDRangeKernel(m_command_queue, m_kernel_normal_interpolation, 1, NULL,
-	// 	&global_item_size, &local_item_size, 0, NULL, NULL);
+	std::cout << "Start Normal Interpolation Kernel" << std::endl;
+
+	m_ret = clSetKernelArg(m_kernel_normal_interpolation, 0, sizeof(cl_mem), (void *)&D_kd_tree_values);
+	m_ret |= clSetKernelArg(m_kernel_normal_interpolation, 1, sizeof(unsigned int), &kd_tree_values->width );
+	m_ret |= clSetKernelArg(m_kernel_normal_interpolation, 2, sizeof(cl_mem), (void *)&D_kd_tree_splits);
+	m_ret |= clSetKernelArg(m_kernel_normal_interpolation, 3, sizeof(unsigned int), &kd_tree_splits->width );
+	m_ret |= clSetKernelArg(m_kernel_normal_interpolation, 4, sizeof(cl_mem), (void *)&D_Normals);
+	m_ret |= clSetKernelArg(m_kernel_normal_interpolation, 5, sizeof(unsigned int), &V.width );
+	m_ret |= clSetKernelArg(m_kernel_normal_interpolation, 6, sizeof(unsigned int), &this->m_ki);
 	
+
+	if(m_ret != CL_SUCCESS)
+    	std::cerr << getErrorString(m_ret) << std::endl;	
+
+	m_ret = clEnqueueNDRangeKernel(m_command_queue, m_kernel_normal_interpolation, 1, NULL,
+	 	&global_item_size, &local_item_size, 0, NULL, NULL);
+	
+    std::cout << "Kernel Successful" << std::endl;
+
 	// Normals back to host
 	m_ret = clEnqueueReadBuffer(m_command_queue, D_Normals, CL_TRUE, 0, this->Result_Normals.width * this->Result_Normals.dim * sizeof(float), this->Result_Normals.elements, 0, NULL, NULL);
 
@@ -205,6 +221,242 @@ void ClSurface::initKdTree() {
 
 	//free(this->kd_tree.elements);
 }
+
+void ClSurface::initCl()
+{
+	this->m_context = clCreateContext(NULL, 1, &this->m_device_id, NULL, NULL, &this->m_ret);
+	if(m_ret != CL_SUCCESS)
+    	std::cerr << getErrorString(m_ret) << std::endl;
+
+	this->m_command_queue = clCreateCommandQueue(this->m_context, this->m_device_id, 0, &this->m_ret);
+	if(m_ret != CL_SUCCESS)
+    	std::cerr << getErrorString(m_ret) << std::endl;
+
+	
+	this->loadEstimationKernel();
+	this->loadInterpolationKernel();
+}
+
+void ClSurface::finalizeCl()
+{
+	m_ret = clFlush(m_command_queue);	
+	m_ret = clFinish(m_command_queue);
+	m_ret = clReleaseKernel(m_kernel_normal_estimation);
+	m_ret = clReleaseKernel(m_kernel_normal_interpolation);
+
+	m_ret = clReleaseProgram(m_program_es);
+	m_ret = clReleaseProgram(m_program_in);
+
+	m_ret = clReleaseMemObject(D_V);
+	m_ret = clReleaseMemObject(D_kd_tree_values);
+	m_ret = clReleaseMemObject(D_kd_tree_splits);
+	m_ret = clReleaseMemObject(D_Normals);
+
+	m_ret = clReleaseCommandQueue(m_command_queue);
+	m_ret = clReleaseContext(m_context);
+	
+}
+
+void ClSurface::loadEstimationKernel()
+{
+	std::cout << "Loading estimation Kernel ..." << std::endl;
+	size_t kernel_source_size;
+	char *kernel_source_str;
+
+	FILE *fp;
+	//const char fileName[] = "/home/amock/Las-Vegas-Reconstruction/src/liblvr/reconstruction/opencl/NormalEstimationKernel.cl";
+	/* Load kernel source file */
+	fp = fopen(NormalEstimationKernelCl, "r");
+	if (!fp) {
+		fprintf(stderr, "Failed to load kernel.\n");
+		exit(1);
+	}	
+	kernel_source_str = (char *)malloc(MAX_SOURCE_SIZE);
+	kernel_source_size = fread(kernel_source_str, 1, MAX_SOURCE_SIZE, fp);
+	fclose(fp);
+
+	// create program
+	m_program_es = clCreateProgramWithSource(m_context, 1, (const char **) &kernel_source_str , NULL, &m_ret);
+    if(m_ret != CL_SUCCESS)
+	{
+		std::cerr << "ClSurface::loadKernel() - Create Program " << getErrorString(m_ret) << std::endl;
+	}
+
+	if (!m_program_es)
+    {
+        printf("Error: Failed to create compute program!\n");
+        exit(1);
+    }
+ 
+    // Build the program executable
+    //
+    m_ret = clBuildProgram(m_program_es, 0, NULL, NULL, NULL, NULL);
+    if (m_ret != CL_SUCCESS)
+    {
+        size_t len;
+        char buffer[2048];
+ 
+        printf("Error: Failed to build program executable!\n");
+        clGetProgramBuildInfo(m_program_es, m_device_id, CL_PROGRAM_BUILD_LOG, sizeof(buffer), buffer, &len);
+        printf("%s\n", buffer);
+        exit(1);
+    }
+
+	// create kernels
+	m_kernel_normal_estimation = clCreateKernel(m_program_es, "NormalEstimationKernel", &m_ret);
+	if(m_ret != CL_SUCCESS)
+	{
+		std::cerr << "ClSurface::loadKernel() - Estimation " << getErrorString(m_ret) << std::endl;
+		exit(1);
+	}
+
+	if(kernel_source_str)
+	{
+		free(kernel_source_str);
+	}
+	
+}
+
+
+void ClSurface::loadInterpolationKernel()
+{
+	std::cout << "Loading interpolation Kernel ..." << std::endl;
+	size_t kernel_source_size;
+	char *kernel_source_str;
+
+	FILE *fp;
+	//const char fileName[] = "/home/amock/Las-Vegas-Reconstruction/src/liblvr/reconstruction/opencl/NormalInterpolationKernel.cl";
+	/* Load kernel source file */
+	fp = fopen(NormalInterpolationKernelCl, "r");
+	if (!fp) {
+		fprintf(stderr, "Failed to load kernel.\n");
+		exit(1);
+	}	
+	kernel_source_str = (char *)malloc(MAX_SOURCE_SIZE);
+	kernel_source_size = fread(kernel_source_str, 1, MAX_SOURCE_SIZE, fp);
+	fclose(fp);
+
+	// create program
+	m_program_in = clCreateProgramWithSource(m_context, 1, (const char **) &kernel_source_str , NULL, &m_ret);
+    if(m_ret != CL_SUCCESS)
+	{
+		std::cerr << "ClSurface::loadInterpolationKernel() - Create Program " << getErrorString(m_ret) << std::endl;
+	}
+
+	if (!m_program_in)
+    {
+        printf("Error: Failed to create compute program!\n");
+        exit(1);
+    }
+ 
+    // Build the program executable
+    //
+    m_ret = clBuildProgram(m_program_in, 0, NULL, NULL, NULL, NULL);
+    if (m_ret != CL_SUCCESS)
+    {
+        size_t len;
+        char buffer[2048];
+ 
+        printf("Error: Failed to build program executable!\n");
+        clGetProgramBuildInfo(m_program_in, m_device_id, CL_PROGRAM_BUILD_LOG, sizeof(buffer), buffer, &len);
+        printf("%s\n", buffer);
+        exit(1);
+    }
+
+	// create kernels
+	m_kernel_normal_interpolation = clCreateKernel(m_program_in, "NormalInterpolationKernel", &m_ret);
+	if(m_ret != CL_SUCCESS)
+	{
+		std::cerr << "ClSurface::loadInterpolationKernel() " << getErrorString(m_ret) << std::endl;
+		exit(1);
+	}
+
+
+	if(kernel_source_str)
+	{
+		free(kernel_source_str);
+	}
+	
+	
+}
+
+const char *ClSurface::getErrorString(cl_int error)
+{
+	switch(error){
+		// run-time and JIT compiler errors
+		case 0: return "CL_SUCCESS";
+		case -1: return "CL_DEVICE_NOT_FOUND";
+		case -2: return "CL_DEVICE_NOT_AVAILABLE";
+		case -3: return "CL_COMPILER_NOT_AVAILABLE";
+		case -4: return "CL_MEM_OBJECT_ALLOCATION_FAILURE";
+		case -5: return "CL_OUT_OF_RESOURCES";
+		case -6: return "CL_OUT_OF_HOST_MEMORY";
+		case -7: return "CL_PROFILING_INFO_NOT_AVAILABLE";
+		case -8: return "CL_MEM_COPY_OVERLAP";
+		case -9: return "CL_IMAGE_FORMAT_MISMATCH";
+		case -10: return "CL_IMAGE_FORMAT_NOT_SUPPORTED";
+		case -11: return "CL_BUILD_PROGRAM_FAILURE";
+		case -12: return "CL_MAP_FAILURE";
+		case -13: return "CL_MISALIGNED_SUB_BUFFER_OFFSET";
+		case -14: return "CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST";
+		case -15: return "CL_COMPILE_PROGRAM_FAILURE";
+		case -16: return "CL_LINKER_NOT_AVAILABLE";
+		case -17: return "CL_LINK_PROGRAM_FAILURE";
+		case -18: return "CL_DEVICE_PARTITION_FAILED";
+		case -19: return "CL_KERNEL_ARG_INFO_NOT_AVAILABLE";
+
+		// compile-time errors
+		case -30: return "CL_INVALID_VALUE";
+		case -31: return "CL_INVALID_DEVICE_TYPE";
+		case -32: return "CL_INVALID_PLATFORM";
+		case -33: return "CL_INVALID_DEVICE";
+		case -34: return "CL_INVALID_CONTEXT";
+		case -35: return "CL_INVALID_QUEUE_PROPERTIES";
+		case -36: return "CL_INVALID_COMMAND_QUEUE";
+		case -37: return "CL_INVALID_HOST_PTR";
+		case -38: return "CL_INVALID_MEM_OBJECT";
+		case -39: return "CL_INVALID_IMAGE_FORMAT_DESCRIPTOR";
+		case -40: return "CL_INVALID_IMAGE_SIZE";
+		case -41: return "CL_INVALID_SAMPLER";
+		case -42: return "CL_INVALID_BINARY";
+		case -43: return "CL_INVALID_BUILD_OPTIONS";
+		case -44: return "CL_INVALID_PROGRAM";
+		case -45: return "CL_INVALID_PROGRAM_EXECUTABLE";
+		case -46: return "CL_INVALID_KERNEL_NAME";
+		case -47: return "CL_INVALID_KERNEL_DEFINITION";
+		case -48: return "CL_INVALID_KERNEL";
+		case -49: return "CL_INVALID_ARG_INDEX";
+		case -50: return "CL_INVALID_ARG_VALUE";
+		case -51: return "CL_INVALID_ARG_SIZE";
+		case -52: return "CL_INVALID_KERNEL_ARGS";
+		case -53: return "CL_INVALID_WORK_DIMENSION";
+		case -54: return "CL_INVALID_WORK_GROUP_SIZE";
+		case -55: return "CL_INVALID_WORK_ITEM_SIZE";
+		case -56: return "CL_INVALID_GLOBAL_OFFSET";
+		case -57: return "CL_INVALID_EVENT_WAIT_LIST";
+		case -58: return "CL_INVALID_EVENT";
+		case -59: return "CL_INVALID_OPERATION";
+		case -60: return "CL_INVALID_GL_OBJECT";
+		case -61: return "CL_INVALID_BUFFER_SIZE";
+		case -62: return "CL_INVALID_MIP_LEVEL";
+		case -63: return "CL_INVALID_GLOBAL_WORK_SIZE";
+		case -64: return "CL_INVALID_PROPERTY";
+		case -65: return "CL_INVALID_IMAGE_DESCRIPTOR";
+		case -66: return "CL_INVALID_COMPILER_OPTIONS";
+		case -67: return "CL_INVALID_LINKER_OPTIONS";
+		case -68: return "CL_INVALID_DEVICE_PARTITION_COUNT";
+
+		// extension errors
+		case -1000: return "CL_INVALID_GL_SHAREGROUP_REFERENCE_KHR";
+		case -1001: return "CL_PLATFORM_NOT_FOUND_KHR";
+		case -1002: return "CL_INVALID_D3D10_DEVICE_KHR";
+		case -1003: return "CL_INVALID_D3D10_RESOURCE_KHR";
+		case -1004: return "CL_D3D10_RESOURCE_ALREADY_ACQUIRED_KHR";
+		case -1005: return "CL_D3D10_RESOURCE_NOT_ACQUIRED_KHR";
+		default: return "Unknown OpenCL error";
+		}
+}
+
 
 void ClSurface::getDeviceInformation()
 {
@@ -427,174 +679,6 @@ void ClSurface::getDeviceInformation()
 	free(platforms);
 
 	
-}
-
-void ClSurface::initCl()
-{
-	this->m_context = clCreateContext(NULL, 1, &this->m_device_id, NULL, NULL, &this->m_ret);
-	if(m_ret != CL_SUCCESS)
-    	std::cerr << getErrorString(m_ret) << std::endl;
-
-	this->m_command_queue = clCreateCommandQueue(this->m_context, this->m_device_id, 0, &this->m_ret);
-	if(m_ret != CL_SUCCESS)
-    	std::cerr << getErrorString(m_ret) << std::endl;
-
-	
-	this->loadKernel();
-}
-
-void ClSurface::finalizeCl()
-{
-	m_ret = clFlush(m_command_queue);	
-	m_ret = clFinish(m_command_queue);
-	m_ret = clReleaseKernel(m_kernel_normal_estimation);
-	m_ret = clReleaseKernel(m_kernel_normal_interpolation);
-
-	m_ret = clReleaseProgram(m_program);
-
-	m_ret = clReleaseMemObject(D_V);
-	m_ret = clReleaseMemObject(D_kd_tree_values);
-	m_ret = clReleaseMemObject(D_kd_tree_splits);
-	m_ret = clReleaseMemObject(D_Normals);
-
-	m_ret = clReleaseCommandQueue(m_command_queue);
-	m_ret = clReleaseContext(m_context);
-
-	if(m_kernel_source_str)
-	{
-		free(m_kernel_source_str);
-	}
-	
-}
-
-void ClSurface::loadKernel()
-{
-	FILE *fp;
-	const char fileName[] = "/home/amock/Las-Vegas-Reconstruction/src/liblvr/reconstruction/opencl/NormalEstimationKernel.cl";
-	/* Load kernel source file */
-	fp = fopen(fileName, "r");
-	if (!fp) {
-		fprintf(stderr, "Failed to load kernel.\n");
-		exit(1);
-	}	
-	m_kernel_source_str = (char *)malloc(MAX_SOURCE_SIZE);
-	m_kernel_source_size = fread(m_kernel_source_str, 1, MAX_SOURCE_SIZE, fp);
-	fclose(fp);
-
-	// create program
-	m_program = clCreateProgramWithSource(m_context, 1, (const char **) &m_kernel_source_str , NULL, &m_ret);
-    if (!m_program)
-    {
-        printf("Error: Failed to create compute program!\n");
-        exit(1);
-    }
- 
-    // Build the program executable
-    //
-    m_ret = clBuildProgram(m_program, 0, NULL, NULL, NULL, NULL);
-    if (m_ret != CL_SUCCESS)
-    {
-        size_t len;
-        char buffer[2048];
- 
-        printf("Error: Failed to build program executable!\n");
-        clGetProgramBuildInfo(m_program, m_device_id, CL_PROGRAM_BUILD_LOG, sizeof(buffer), buffer, &len);
-        printf("%s\n", buffer);
-        exit(1);
-    }
-
-	// create kernels
-	m_kernel_normal_estimation = clCreateKernel(m_program, "NormalEstimationKernel", &m_ret);
-	if(m_ret != CL_SUCCESS)
-	{
-		std::cerr << "ClSurface::loadKernel() " << getErrorString(m_ret) << std::endl;
-		exit(1);
-	}
-    	
-
-
-	// m_kernel_normal_interpolation = clCreateKernel(m_program, "InterpolationKernel", &m_ret);
-	// if(m_ret != CL_SUCCESS)
-    // 	std::cerr << "ClSurface::loadKernel() " << getErrorString(m_ret) << std::endl;
-
-	
-}
-
-const char *ClSurface::getErrorString(cl_int error)
-{
-	switch(error){
-		// run-time and JIT compiler errors
-		case 0: return "CL_SUCCESS";
-		case -1: return "CL_DEVICE_NOT_FOUND";
-		case -2: return "CL_DEVICE_NOT_AVAILABLE";
-		case -3: return "CL_COMPILER_NOT_AVAILABLE";
-		case -4: return "CL_MEM_OBJECT_ALLOCATION_FAILURE";
-		case -5: return "CL_OUT_OF_RESOURCES";
-		case -6: return "CL_OUT_OF_HOST_MEMORY";
-		case -7: return "CL_PROFILING_INFO_NOT_AVAILABLE";
-		case -8: return "CL_MEM_COPY_OVERLAP";
-		case -9: return "CL_IMAGE_FORMAT_MISMATCH";
-		case -10: return "CL_IMAGE_FORMAT_NOT_SUPPORTED";
-		case -11: return "CL_BUILD_PROGRAM_FAILURE";
-		case -12: return "CL_MAP_FAILURE";
-		case -13: return "CL_MISALIGNED_SUB_BUFFER_OFFSET";
-		case -14: return "CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST";
-		case -15: return "CL_COMPILE_PROGRAM_FAILURE";
-		case -16: return "CL_LINKER_NOT_AVAILABLE";
-		case -17: return "CL_LINK_PROGRAM_FAILURE";
-		case -18: return "CL_DEVICE_PARTITION_FAILED";
-		case -19: return "CL_KERNEL_ARG_INFO_NOT_AVAILABLE";
-
-		// compile-time errors
-		case -30: return "CL_INVALID_VALUE";
-		case -31: return "CL_INVALID_DEVICE_TYPE";
-		case -32: return "CL_INVALID_PLATFORM";
-		case -33: return "CL_INVALID_DEVICE";
-		case -34: return "CL_INVALID_CONTEXT";
-		case -35: return "CL_INVALID_QUEUE_PROPERTIES";
-		case -36: return "CL_INVALID_COMMAND_QUEUE";
-		case -37: return "CL_INVALID_HOST_PTR";
-		case -38: return "CL_INVALID_MEM_OBJECT";
-		case -39: return "CL_INVALID_IMAGE_FORMAT_DESCRIPTOR";
-		case -40: return "CL_INVALID_IMAGE_SIZE";
-		case -41: return "CL_INVALID_SAMPLER";
-		case -42: return "CL_INVALID_BINARY";
-		case -43: return "CL_INVALID_BUILD_OPTIONS";
-		case -44: return "CL_INVALID_PROGRAM";
-		case -45: return "CL_INVALID_PROGRAM_EXECUTABLE";
-		case -46: return "CL_INVALID_KERNEL_NAME";
-		case -47: return "CL_INVALID_KERNEL_DEFINITION";
-		case -48: return "CL_INVALID_KERNEL";
-		case -49: return "CL_INVALID_ARG_INDEX";
-		case -50: return "CL_INVALID_ARG_VALUE";
-		case -51: return "CL_INVALID_ARG_SIZE";
-		case -52: return "CL_INVALID_KERNEL_ARGS";
-		case -53: return "CL_INVALID_WORK_DIMENSION";
-		case -54: return "CL_INVALID_WORK_GROUP_SIZE";
-		case -55: return "CL_INVALID_WORK_ITEM_SIZE";
-		case -56: return "CL_INVALID_GLOBAL_OFFSET";
-		case -57: return "CL_INVALID_EVENT_WAIT_LIST";
-		case -58: return "CL_INVALID_EVENT";
-		case -59: return "CL_INVALID_OPERATION";
-		case -60: return "CL_INVALID_GL_OBJECT";
-		case -61: return "CL_INVALID_BUFFER_SIZE";
-		case -62: return "CL_INVALID_MIP_LEVEL";
-		case -63: return "CL_INVALID_GLOBAL_WORK_SIZE";
-		case -64: return "CL_INVALID_PROPERTY";
-		case -65: return "CL_INVALID_IMAGE_DESCRIPTOR";
-		case -66: return "CL_INVALID_COMPILER_OPTIONS";
-		case -67: return "CL_INVALID_LINKER_OPTIONS";
-		case -68: return "CL_INVALID_DEVICE_PARTITION_COUNT";
-
-		// extension errors
-		case -1000: return "CL_INVALID_GL_SHAREGROUP_REFERENCE_KHR";
-		case -1001: return "CL_PLATFORM_NOT_FOUND_KHR";
-		case -1002: return "CL_INVALID_D3D10_DEVICE_KHR";
-		case -1003: return "CL_INVALID_D3D10_RESOURCE_KHR";
-		case -1004: return "CL_D3D10_RESOURCE_ALREADY_ACQUIRED_KHR";
-		case -1005: return "CL_D3D10_RESOURCE_NOT_ACQUIRED_KHR";
-		default: return "Unknown OpenCL error";
-		}
 }
 
 } /* namespace lvr */

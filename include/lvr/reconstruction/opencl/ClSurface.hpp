@@ -21,6 +21,8 @@
 #include "lvr/reconstruction/opencl/cl_helper.h"
 
 #define MAX_SOURCE_SIZE (0x100000)
+#define NormalEstimationKernelCl "/home/amock/Las-Vegas-Reconstruction/src/liblvr/reconstruction/opencl/NormalEstimationKernel.cl"
+#define NormalInterpolationKernelCl "/home/amock/Las-Vegas-Reconstruction/src/liblvr/reconstruction/opencl/NormalInterpolationKernel.cl" 
 
 namespace lvr {
 
@@ -115,7 +117,9 @@ private:
 
     void getDeviceInformation();
 
-	void loadKernel();
+	void loadEstimationKernel();
+
+	void loadInterpolationKernel();
 
 	void initCl();
 
@@ -145,12 +149,12 @@ private:
 	cl_int m_ret;
 	cl_context m_context;
 	cl_command_queue m_command_queue;
-	cl_program m_program;
+	cl_program m_program_es;
+	cl_program m_program_in;
 	cl_kernel m_kernel_normal_estimation;
 	cl_kernel m_kernel_normal_interpolation;
 
-	size_t m_kernel_source_size;
-	char *m_kernel_source_str;
+	
 
 	cl_mem D_V;
 	cl_mem D_kd_tree_values;
