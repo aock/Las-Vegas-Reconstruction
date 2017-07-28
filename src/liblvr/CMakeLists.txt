@@ -40,6 +40,7 @@ set(LVR_SOURCES
     reconstruction/ModelToImage.cpp
     reconstruction/Projection.cpp
     reconstruction/PanoramaNormals.cpp
+    reconstruction/opencl/ClSurface.cpp
     texture/Texture.cpp
     texture/ImageProcessor.cpp
     texture/Statistics.cpp

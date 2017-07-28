@@ -290,6 +290,12 @@ if(CUDA_FOUND)
     add_subdirectory(src/tools/cuda_normals)
 endif()
 
+find_package(OpenCL)
+if(OPENCL_FOUND)
+    include_directories(OPENCL_INCLUDE_DIR)
+    add_subdirectory(src/tools/cl_normals)
+endif()
+
 ##############################################################
 # APPLE OMP OPTION FOR CLANG-OMP
 ##############################################################
@@ -372,38 +378,39 @@ add_subdirectory(src/liblvr)
 ##############################################################
 
 add_subdirectory(src/tools/reconstruct)
-add_subdirectory(src/tools/classifier)
-add_subdirectory(src/tools/colorize)
-add_subdirectory(src/tools/scanreduce)
-add_subdirectory(src/tools/convert)
-add_subdirectory(src/tools/asciiconverter)
-add_subdirectory(src/tools/texman)
-add_subdirectory(src/tools/tiogen)
-add_subdirectory(src/tools/meshoptimizer)
-add_subdirectory(src/tools/transform)
-add_subdirectory(src/tools/registration)
-add_subdirectory(src/tools/normals)
-add_subdirectory(src/tools/kaboom)
-add_subdirectory(src/tools/image_normals)
+#add_subdirectory(src/tools/classifier)
+#add_subdirectory(src/tools/colorize)
+#add_subdirectory(src/tools/scanreduce)
+#add_subdirectory(src/tools/convert)
+#add_subdirectory(src/tools/asciiconverter)
+#add_subdirectory(src/tools/texman)
+#add_subdirectory(src/tools/tiogen)
+#add_subdirectory(src/tools/meshoptimizer)
+#add_subdirectory(src/tools/transform)
+#add_subdirectory(src/tools/registration)
+#add_subdirectory(src/tools/normals)
+#add_subdirectory(src/tools/kaboom)
+#add_subdirectory(src/tools/image_normals)
+
 
 if(MPI_FOUND)
-  add_subdirectory(src/tools/mpi)
+# add_subdirectory(src/tools/mpi)
 endif(MPI_FOUND)
 
 if(CGAL_FOUND)
   # There is a name clash between CGAL and std::pair. Should
   # be fixed in the next CGAL release
   if(CMAKE_COMPILER_IS_GNUCC AND CMAKE_COMPILER_IS_GNU)
-    add_subdirectory(src/tools/cgal_reconstruction)
+#   add_subdirectory(src/tools/cgal_reconstruction)
   endif()
   #add_subdirectory(src/tools/fusion)
-  add_subdirectory(src/tools/slicer)
+# add_subdirectory(src/tools/slicer)
 endif(CGAL_FOUND)
 
 if(PCL_FOUND)
-  add_subdirectory(src/tools/scanfilter)
+# add_subdirectory(src/tools/scanfilter)
   if(LIBFREENECT_FOUND)
-    add_subdirectory(src/tools/kinectgrabber)
+#   add_subdirectory(src/tools/kinectgrabber)
   endif(LIBFREENECT_FOUND)
 endif(PCL_FOUND)
 
