@@ -48,7 +48,6 @@ __global__ void KNNKernel4(const LBPointArray<float> D_V,
 		LBPointArray<float> D_Normals, int k, int method,
 		float flip_x, float flip_y, float flip_z);
 
-// IN WORK
 __global__ void InterpolationKernel(const LBPointArray<float> D_kd_tree_values, const LBPointArray<unsigned char> D_kd_tree_splits,
 		LBPointArray<float> D_Normals, int ki );
 
@@ -1605,7 +1604,8 @@ void CudaSurface::setKd(int kd)
 	this->m_kd = kd;
 }
 
-void CudaSurface::setFlippoint(float v_x, float v_y, float v_z) {
+void CudaSurface::setFlippoint(float v_x, float v_y, float v_z) 
+{
 
     this->m_vx = v_x;
 	this->m_vy = v_y;
@@ -1613,7 +1613,8 @@ void CudaSurface::setFlippoint(float v_x, float v_y, float v_z) {
 
 }
 
-void CudaSurface::setMethod(std::string method) {
+void CudaSurface::setMethod(std::string method) 
+{
 
     if( strcmp( method.c_str(), "PCA") == 0 ){
 		this->m_calc_method = 0;
@@ -1625,7 +1626,8 @@ void CudaSurface::setMethod(std::string method) {
 
 }
 
-void CudaSurface::printSettings() {
+void CudaSurface::printSettings() 
+{
 
 	printf("	Nearest Neighbors = %d\n",this->m_k);
 	
@@ -1645,7 +1647,8 @@ void CudaSurface::printSettings() {
 }
 
 
-void CudaSurface::calculateNormals() {
+void CudaSurface::calculateNormals() 
+{
 	
 	generatePointArray( this->Result_Normals, V.width, V.dim);
 	
@@ -1657,20 +1660,13 @@ void CudaSurface::calculateNormals() {
 	//COPY STUFF
 	copyToDevicePointArray( V, D_V );
 
-	// for(unsigned int i = 0; i< 100; i++)
-	// {
-	// 	this->debug(i, this->m_k);
-	// }
-	//this->debug(28,this->m_k);
-	//this->debug2(28,this->m_k);
-	
-
 	//Cuda Kernels
 	GPU_NN();
 	
 }
 
-void CudaSurface::interpolateNormals() {
+void CudaSurface::interpolateNormals() 
+{
 	
 }
 
@@ -1695,10 +1691,6 @@ void CudaSurface::distances(std::vector<lvr::QueryPoint<cVertex> >& query_points
 	std::cout << "Example query point: " << query_points[5].m_position.x << "|" << query_points[5].m_position.y << "|" << query_points[5].m_position.z << std::endl; 
 	std::cout << "Distance: " << query_points[5].m_distance << std::endl;
 	std::cout << "Invalid: " << query_points[5].m_invalid << std::endl;
-
-	// thrust::device_vector< QueryPointC > d_query_points = query_points;
-
-	// QueryPointC* qpArray = thrust::raw_pointer_cast( &d_query_points[0] );
 
 	QueryPointC *d_query_points;
 	cudaMalloc((void**)&d_query_points, sizeof(QueryPointC)*query_points.size() );
@@ -1734,7 +1726,8 @@ void CudaSurface::distances(std::vector<lvr::QueryPoint<cVertex> >& query_points
 }
 
 
-CudaSurface::~CudaSurface() {
+CudaSurface::~CudaSurface() 
+{
 
     // clearn up resulting normals and kd_tree
     // Pointcloud has to be cleaned up by user

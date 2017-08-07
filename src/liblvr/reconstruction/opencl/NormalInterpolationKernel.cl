@@ -37,7 +37,7 @@ __kernel void NormalInterpolationKernel(__global float* D_kd_tree_values, const 
     //Read from global and store to local
     //temp[localId.x + localId.y * localSize.x] = in[globalId.x + globalId.y * globalSize.x];
     //Sync
-    //barrier(CLK_LOCAL_MEM_FENCE);   
+    //barrier(CLK_LOCAL_MEM_FENCE);
 
 	unsigned int tid = glob_id;
 	const unsigned int offset = glob_size;

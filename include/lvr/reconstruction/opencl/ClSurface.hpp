@@ -6,6 +6,7 @@
 #include "lvr/geometry/LBPointArray.hpp"
 #include "lvr/geometry/ColorVertex.hpp"
 
+#include <boost/filesystem.hpp>
 #include <boost/shared_array.hpp>
 #include <string.h>
 #include <stdio.h>
@@ -153,8 +154,6 @@ private:
 	cl_program m_program_in;
 	cl_kernel m_kernel_normal_estimation;
 	cl_kernel m_kernel_normal_interpolation;
-
-	
 
 	cl_mem D_V;
 	cl_mem D_kd_tree_values;
