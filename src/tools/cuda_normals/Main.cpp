@@ -23,6 +23,8 @@
  */
 
 #include <boost/filesystem.hpp>
+#include <fstream>
+#include <vector>
 
 #include <lvr/reconstruction/cuda/CudaSurface.hpp>
 
@@ -43,6 +45,112 @@ using namespace lvr;
 
 typedef PointsetSurface<ColorVertex<float, unsigned char> > psSurface;
 typedef AdaptiveKSearchSurface<ColorVertex<float, unsigned char>, Normal<float> > akSurface;
+typedef ColorVertex<double, unsigned char> cvertex;
+
+
+static int file_counter = 0;
+
+void readBlob(string filename, PointBufferPtr buffer, size_t& num_inner_points)
+{
+    ifstream infile(filename.c_str(), ios::in | ios::binary);
+    size_t num_points_total;
+    infile >> num_points_total;
+    std::cout << "-- Read " << num_points_total << " Points in total" << std::endl;
+
+    floatArr points = floatArr(new float[ num_points_total * 3 ]);
+    ucharArr colors = ucharArr(new unsigned char[ num_points_total * 3 ]);
+
+
+    char ch; // endl
+    char point_size_buf[4];
+
+    if(infile.is_open())
+    {
+        unsigned int i = 0;
+        unsigned int index = 0;
+        while(!infile.eof())
+        {
+            unsigned int point_size;
+            infile >> point_size;
+
+            if(i == 0)
+            {
+                num_inner_points = point_size;
+            }
+
+            infile.read((char*)&ch, 1);
+            std::cout << "--- Read Blob " << i  << ", Num Points: " << point_size << std::endl;
+            
+            infile.read((char*)&(points[index*3]), 3 * sizeof(float) * point_size );
+            infile.read((char*)&(colors[index*3]), 3 * sizeof(unsigned char) * point_size );
+            
+            i++;
+            index += point_size;
+        }
+
+        infile.close();
+    }
+
+    buffer->setPointArray(points, num_points_total);
+    buffer->setPointColorArray(colors, num_points_total);
+}
+
+void computeNormalsFromBlob(string filename, cuda_normals::Options& opt, PointBufferPtr& buffer)
+{
+    //ModelPtr model = ModelFactory::readModel(filename);
+    size_t num_points;
+    size_t num_colors;
+    size_t num_inner_points;
+
+    floatArr points;
+    ucharArr colors;
+    readBlob(filename, buffer, num_inner_points);
+    points = buffer->getPointArray(num_points);
+    colors = buffer->getPointColorArray(num_colors);
+
+    std::cout << "Found " << num_points << " Points" << std::endl;
+
+    // floatArr points = floatArr(new float[ num_points * 3 ]);
+    // ucharArr colors = ucharArr(new unsigned char[ num_points * 3]);
+    floatArr normals = floatArr(new float[ num_points * 3 ]);
+
+
+    cout << timestamp << "Constructing kd-tree..." << endl;
+    CudaSurface gpu_surface(points, num_points);
+    cout << timestamp << "Finished kd-tree construction." << endl;
+
+    gpu_surface.setKn(opt.kn());
+    gpu_surface.setKi(opt.ki());
+
+    if(opt.useRansac())
+    {
+        gpu_surface.setMethod("RANSAC");
+    } else
+    {
+        gpu_surface.setMethod("PCA");
+    }
+    gpu_surface.setFlippoint(opt.flipx(), opt.flipy(), opt.flipz());
+
+    cout << timestamp << "Start Normal Calculation..." << endl;
+    gpu_surface.calculateNormals();
+
+    gpu_surface.getNormals(normals);
+    cout << timestamp << "Finished Normal Calculation. " << endl;
+
+    buffer->setPointArray(points, num_inner_points);
+    buffer->setPointColorArray(colors, num_inner_points);
+    buffer->setPointNormalArray(normals, num_inner_points);
+
+
+    
+    std::string debug_filename = std::string("normals")+ std::to_string(file_counter) + std::string(".ply");
+    ModelPtr out_model(new Model(buffer));
+    std::cout << "Writing " << debug_filename << "..." << std::endl;
+    ModelFactory::saveModel(out_model, debug_filename.c_str());
+    file_counter ++;
+
+    gpu_surface.freeGPU();
+}
 
 void computeNormals(string filename, cuda_normals::Options& opt, PointBufferPtr& buffer)
 {
@@ -160,6 +268,18 @@ int main(int argc, char** argv){
                     computeNormals(p.string(), opt, buffer);
                     transformPointCloudAndAppend(buffer, p, all_points, all_normals);
 
+                }
+            }else if(string(p.extension().string().c_str()) == ".blob")
+            {
+                // Check for naming convention "scanxxx.3d"
+                int num = 0;
+                if(sscanf(currentFile.c_str(), "scan%3d", &num))
+                {
+                    cout << timestamp << "Processing " << p.string() << endl;
+                    PointBufferPtr buffer(new PointBuffer);
+
+                    computeNormalsFromBlob(p.string(), opt, buffer);
+                    transformPointCloudAndAppend(buffer, p, all_points, all_normals);
                 }
             }
         }

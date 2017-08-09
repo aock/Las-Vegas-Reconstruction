@@ -47,6 +47,9 @@ void writeBlob(std::vector<std::vector<cvertex>* >& points, unsigned int number=
 {
     std::string number_str = std::to_string(number);
 
+    
+    
+
     if(number_str.length() == 1)
     {
         number_str = std::string("00") + number_str;
@@ -55,7 +58,7 @@ void writeBlob(std::vector<std::vector<cvertex>* >& points, unsigned int number=
         number_str = std::string("0") + number_str;
     }
 
-    std::string filename = std::string("scan") + number_str + std::string(".blob");
+    std::string filename = std::string("blob/scan") + number_str + std::string(".blob");
     ofstream ofile(filename.c_str(), ios::out | ios::binary);
 
     unsigned int num_points = 0;
@@ -68,12 +71,30 @@ void writeBlob(std::vector<std::vector<cvertex>* >& points, unsigned int number=
     for(unsigned int i=0; i< points.size(); i++)
     {
         unsigned int num_points = points[i]->size();
+
+        float* pointArr = (float*)malloc(points[i]->size() * sizeof(float) * 3);
+        unsigned char* colorArr = (unsigned char*)malloc(points[i]->size() *  sizeof(unsigned char) * 3);
+
+        for(unsigned int j=0; j<points[i]->size(); j++)
+        {
+            pointArr[j*3 + 0] = points[i]->at(j).x;
+            pointArr[j*3 + 1] = points[i]->at(j).y;
+            pointArr[j*3 + 2] = points[i]->at(j).z;
+            colorArr[j*3 + 0] = points[i]->at(j).r;
+            colorArr[j*3 + 1] = points[i]->at(j).g;
+            colorArr[j*3 + 2] = points[i]->at(j).b;
+        }
+
         if(num_points > 0)
         {
             std::cout << "Writing " << num_points << " to " << filename << std::endl;
             ofile << num_points << std::endl;
-            ofile.write( (char*)&((*points[i])[0]), num_points * sizeof(cvertex) );
+            ofile.write( (char*)pointArr, num_points * sizeof(float) * 3 );
+            ofile.write( (char*)colorArr, num_points * sizeof(unsigned char) * 3 );
         }
+
+        free(pointArr);
+        free(colorArr);
         
     }
 
@@ -193,11 +214,15 @@ unsigned int splitPointFile( string filename, overlapping_test::Options& opt, Po
 
     ModelPtr model = ModelFactory::readModel(filename);
     size_t num_points;
+    size_t num_colors;
 
     floatArr points;
+    ucharArr colors;
+
     if (model && model->m_pointCloud )
     {
         points = model->m_pointCloud->getPointArray(num_points);
+        colors = model->m_pointCloud->getPointColorArray(num_colors);
         cout << timestamp << "Read " << num_points << " points from " << filename << endl;
     }
     else
@@ -212,6 +237,9 @@ unsigned int splitPointFile( string filename, overlapping_test::Options& opt, Po
         in_point.x = points[i*3+0];
         in_point.y = points[i*3+1];
         in_point.z = points[i*3+2]; 
+        in_point.r = colors[i*3+0];
+        in_point.g = colors[i*3+1];
+        in_point.b = colors[i*3+2];
         OlTree.insert(in_point);
     }
     std::cout << "calculate Overlaps" << std::endl;

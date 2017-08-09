@@ -175,6 +175,11 @@ void LBKdTree::generateKdTreeRecursive(int id, LBPointArray<float>& V, LBPointAr
         fillCriticalIndices(V, sorted_indices[current_dim], current_dim, split_value, left_size-1,
              critical_indices_left, critical_indices_right);
 
+        if( critical_indices_left.size() + critical_indices_right.size() > 100000 )
+        {
+            std::cout << "WARNING: Found " << critical_indices_left.size() + critical_indices_right.size() << " Critical Indices" << std::endl;
+        }
+        
         //std::cout << "Split in dimension: " << current_dim << std::endl;
         values->elements[ position ] = split_value;
         splits->elements[ position ] = static_cast<unsigned char>(current_dim);
