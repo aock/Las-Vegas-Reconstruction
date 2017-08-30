@@ -21,7 +21,7 @@
 #endif
 #include "lvr/reconstruction/opencl/cl_helper.h"
 
-#define MAX_SOURCE_SIZE (0x100000)
+#define MAX_SOURCE_SIZE (0x1024)
 #define NormalEstimationKernelCl "/home/amock/Las-Vegas-Reconstruction/src/liblvr/reconstruction/opencl/NormalEstimationKernel.cl"
 #define NormalInterpolationKernelCl "/home/amock/Las-Vegas-Reconstruction/src/liblvr/reconstruction/opencl/NormalInterpolationKernel.cl" 
 
@@ -240,7 +240,7 @@ const char *NORMAL_INTERPOLATION_KERNEL_STRING = "\n"
 "					} \n"
 "				} \n"
 "			} \n"
-"			float norm = sqrt(pow(n_x,2.0) + pow(n_y,2.0) + pow(n_z,2.0)); \n"
+"			float norm = sqrt(pow(n_x,2) + pow(n_y,2) + pow(n_z,2)); \n"
 "			n_x = n_x/norm; \n"
 "			n_y = n_y/norm; \n"
 "			n_z = n_z/norm; \n"
