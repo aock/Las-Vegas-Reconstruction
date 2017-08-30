@@ -225,7 +225,7 @@ void PLYIO::save( string filename )
     /* Add point element */
     if ( m_points )
     {
-        ply_add_element( oply, "point", m_numPoints );
+        ply_add_element( oply, "vertex", m_numPoints );
 
         /* Add point properties: x, y, z, (r, g, b) */
         ply_add_scalar_property( oply, "x", PLY_FLOAT );

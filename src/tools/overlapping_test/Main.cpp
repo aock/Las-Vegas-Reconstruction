@@ -16,13 +16,21 @@ using namespace lvr;
 
 typedef ColorVertex<double, unsigned char> cvertex;
 
-void rgb(float minimum, float maximum, float value,
+void rgb(size_t minimum, size_t maximum, size_t value,
     unsigned int& r, unsigned int& g, unsigned int& b )
 {
-    float ratio = 2 * (value-minimum) / (maximum - minimum);
-    b = int(std::max(float(0.0), 255*(1 - ratio)));
-    r = int(std::max(float(0.0), 255*(ratio - 1)));
-    g = 255 - b - r;
+    if(value == 0)
+    {
+        b = 0;
+        r = 0;
+        g = 0;
+    }else{
+        float ratio = 2 * (value-minimum) / (maximum - minimum);
+        b = int(std::max(float(0.0), 255*(1 - ratio)));
+        r = int(std::max(float(0.0), 255*(ratio - 1)));
+        g = 255 - b - r;
+    }
+    
 }
     
 
@@ -237,9 +245,9 @@ unsigned int splitPointFile( string filename, overlapping_test::Options& opt, Po
         in_point.x = points[i*3+0];
         in_point.y = points[i*3+1];
         in_point.z = points[i*3+2]; 
-        in_point.r = colors[i*3+0];
-        in_point.g = colors[i*3+1];
-        in_point.b = colors[i*3+2];
+        // in_point.r = colors[i*3+0];
+        // in_point.g = colors[i*3+1];
+        // in_point.b = colors[i*3+2];
         OlTree.insert(in_point);
     }
     std::cout << "calculate Overlaps" << std::endl;
@@ -260,6 +268,7 @@ unsigned int splitPointFile( string filename, overlapping_test::Options& opt, Po
     {
         // debug
         writeBlob(splitted_points[i], i);
+        savePly(splitted_points[i], i);
         
         std::cout << " " << i << std::endl;
         for(unsigned int j=0; j<splitted_points[i].size(); j++)
@@ -319,15 +328,15 @@ int main(int argc, char** argv){
         unsigned int num_files = splitPointFile( opt.inputFile(), opt, buffer);
 
 
-        for(unsigned int i = 0; i< num_files; i++)
-        {
-            std::cout << "Read File " << i << std::endl;
-            std::vector< cvertex> points;
-            unsigned int num_inner_points;
-            readBlob(i, points, num_inner_points);
-            std::cout << "Number of Points: " << points.size() << std::endl;
-            std::cout << "   Number of inner Points: " << num_inner_points << std::endl;
-        }
+        // for(unsigned int i = 0; i< num_files; i++)
+        // {
+        //     std::cout << "Read File " << i << std::endl;
+        //     std::vector< cvertex> points;
+        //     unsigned int num_inner_points;
+        //     //readBlob(i, points, num_inner_points);
+        //     std::cout << "Number of Points: " << points.size() << std::endl;
+        //     std::cout << "   Number of inner Points: " << num_inner_points << std::endl;
+        // }
         
 
         ModelPtr out_model(new Model(buffer));
