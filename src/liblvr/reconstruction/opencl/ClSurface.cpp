@@ -263,23 +263,23 @@ void ClSurface::finalizeCl()
 void ClSurface::loadEstimationKernel()
 {
 	std::cout << "Loading estimation Kernel ..." << std::endl;
-	size_t kernel_source_size;
-	char *kernel_source_str;
+	// size_t kernel_source_size;
+	// char *kernel_source_str;
 
-	FILE *fp;
-	//const char fileName[] = "/home/amock/Las-Vegas-Reconstruction/src/liblvr/reconstruction/opencl/NormalEstimationKernel.cl";
-	/* Load kernel source file */
-	fp = fopen(NormalEstimationKernelCl, "r");
-	if (!fp) {
-		fprintf(stderr, "Failed to load kernel.\n");
-		exit(1);
-	}	
-	kernel_source_str = (char *)malloc(MAX_SOURCE_SIZE);
-	kernel_source_size = fread(kernel_source_str, 1, MAX_SOURCE_SIZE, fp);
-	fclose(fp);
+	// FILE *fp;
+	// //const char fileName[] = "/home/amock/Las-Vegas-Reconstruction/src/liblvr/reconstruction/opencl/NormalEstimationKernel.cl";
+	// /* Load kernel source file */
+	// fp = fopen(NormalEstimationKernelCl, "r");
+	// if (!fp) {
+	// 	fprintf(stderr, "Failed to load kernel.\n");
+	// 	exit(1);
+	// }
+	// kernel_source_str = (char *)malloc(MAX_SOURCE_SIZE);
+	// kernel_source_size = fread(kernel_source_str, 1, MAX_SOURCE_SIZE, fp);
+	// fclose(fp);
 
 	// create program
-	m_program_es = clCreateProgramWithSource(m_context, 1, (const char **) &kernel_source_str , NULL, &m_ret);
+	m_program_es = clCreateProgramWithSource(m_context, 1, (const char **) &NORMAL_ESTIMATION_KERNEL_STRING , NULL, &m_ret);
     if(m_ret != CL_SUCCESS)
 	{
 		std::cerr << "ClSurface::loadKernel() - Create Program " << getErrorString(m_ret) << std::endl;
@@ -313,10 +313,10 @@ void ClSurface::loadEstimationKernel()
 		exit(1);
 	}
 
-	if(kernel_source_str)
-	{
-		free(kernel_source_str);
-	}
+	// if(kernel_source_str)
+	// {
+	// 	free(kernel_source_str);
+	// }
 	
 }
 
@@ -324,23 +324,23 @@ void ClSurface::loadEstimationKernel()
 void ClSurface::loadInterpolationKernel()
 {
 	std::cout << "Loading interpolation Kernel ..." << std::endl;
-	size_t kernel_source_size;
-	char *kernel_source_str;
+	// size_t kernel_source_size;
+	// char *kernel_source_str;
 
-	FILE *fp;
-	//const char fileName[] = "/home/amock/Las-Vegas-Reconstruction/src/liblvr/reconstruction/opencl/NormalInterpolationKernel.cl";
-	/* Load kernel source file */
-	fp = fopen(NormalInterpolationKernelCl, "r");
-	if (!fp) {
-		fprintf(stderr, "Failed to load kernel.\n");
-		exit(1);
-	}	
-	kernel_source_str = (char *)malloc(MAX_SOURCE_SIZE);
-	kernel_source_size = fread(kernel_source_str, 1, MAX_SOURCE_SIZE, fp);
-	fclose(fp);
+	// FILE *fp;
+	// //const char fileName[] = "/home/amock/Las-Vegas-Reconstruction/src/liblvr/reconstruction/opencl/NormalInterpolationKernel.cl";
+	// /* Load kernel source file */
+	// fp = fopen(NormalInterpolationKernelCl, "r");
+	// if (!fp) {
+	// 	fprintf(stderr, "Failed to load kernel.\n");
+	// 	exit(1);
+	// }	
+	// kernel_source_str = (char *)malloc(MAX_SOURCE_SIZE);
+	// kernel_source_size = fread(kernel_source_str, 1, MAX_SOURCE_SIZE, fp);
+	// fclose(fp);
 
 	// create program
-	m_program_in = clCreateProgramWithSource(m_context, 1, (const char **) &kernel_source_str , NULL, &m_ret);
+	m_program_in = clCreateProgramWithSource(m_context, 1, (const char **) &NORMAL_INTERPOLATION_KERNEL_STRING , NULL, &m_ret);
     if(m_ret != CL_SUCCESS)
 	{
 		std::cerr << "ClSurface::loadInterpolationKernel() - Create Program " << getErrorString(m_ret) << std::endl;
@@ -375,10 +375,10 @@ void ClSurface::loadInterpolationKernel()
 	}
 
 
-	if(kernel_source_str)
-	{
-		free(kernel_source_str);
-	}
+	// if(kernel_source_str)
+	// {
+	// 	free(kernel_source_str);
+	// }
 	
 	
 }

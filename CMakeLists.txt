@@ -281,7 +281,7 @@ endif()
 
 if(CUDA_FOUND AND "${OpenCV_VERSION_PATCH}" VERSION_GREATER "8" AND WITH_KINFU)
     message(STATUS "Building LVR KinFu.")
-    add_subdirectory(ext/kintinuous)
+    #add_subdirectory(ext/kintinuous)
     include_directories(${LAS_VEGAS_SOURCE_DIR}/ext/kintinuous/kfusion/include)
 endif()
 
@@ -357,13 +357,13 @@ if(QT4_FOUND)
   if(QGLVIEWER_LIBRARY_RELEASE)
     message(STATUS "Found libqglviewer")
     message(STATUS "Building qglviewer application")
-    add_subdirectory(src/qglviewer)
+    #add_subdirectory(src/qglviewer)
   endif(QGLVIEWER_LIBRARY_RELEASE)
 
   find_package(QVTK)
   if(QVTK_FOUND)
     include_directories(${QVTK_INCLUDE_DIR})
-    add_subdirectory(src/tools/viewer)
+    #add_subdirectory(src/tools/viewer)
   endif(QVTK_FOUND)
 endif(QT4_FOUND)
 
@@ -391,7 +391,7 @@ add_subdirectory(src/tools/reconstruct)
 #add_subdirectory(src/tools/normals)
 #add_subdirectory(src/tools/kaboom)
 #add_subdirectory(src/tools/image_normals)
-add_subdirectory(src/tools/overlapping_test)
+#add_subdirectory(src/tools/overlapping_test)
 
 
 if(MPI_FOUND)
